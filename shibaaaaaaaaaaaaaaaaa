@@ -1,0 +1,369 @@
+#include "hcmcampaign.h"
+
+////////////////////////////////////////////////////////////////////////
+/// STUDENT'S ANSWER BEGINS HERE
+////////////////////////////////////////////////////////////////////////
+
+string Configuration::str() const {
+    return data;
+}
+Configuration::Configuration(const string& filename) {
+    ifstream file(filename);
+    if (file) {
+        string line;
+        while (getline(file, line)) {
+            data += line + "\n";  // Đọc từng dòng từ tệp
+        }
+    }
+    else {
+        data = "Không thể mở tệp " + filename;
+    }
+}
+
+
+Unit::Unit(int quantity, int weight, const Position pos) {
+    this->quantity = quantity;
+    this->weight = weight;
+    this->pos = pos;
+}
+
+Unit::~Unit() {}
+
+Position Unit::getCurrentPosition() const {
+    return pos;
+} 
+
+// VEHICLE ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Vehicle::Vehicle(int quantity, int weight, const Position pos, VehicleType vehicleType) : Unit(quantity, weight, pos) {
+    this->quantity = quantity;
+    this->weight = weight;
+    this->pos = pos;
+    this->vehicleType = vehicleType;
+
+}
+int Vehicle::getAttackScore() {
+    int score = 0;
+    return score = static_cast<int>(vehicleType) * 304 + quantity * weight / 30;
+}
+string Vehicle:: str() const {
+    ostringstream oss;
+    oss << "Vehicle[vehicleType=" << static_cast<int>(vehicleType)  
+        << ",quantity=" << quantity
+        << ",weight=" << weight
+        << ",pos=" << pos.str()
+        << "]";
+    return oss.str();
+}
+
+
+// INFANTRY //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Infantry::Infantry(int quantity, int weight, const Position pos, InfantryType infantryType) : Unit(quantity, weight, pos) {
+	this->quantity = quantity;
+	this->weight = weight;
+	this->pos = pos;
+	this->infantryType = infantryType;
+}
+
+int Infantry::getAttackScore() {
+   
+    int score = static_cast<int>(infantryType) * 56 + quantity * weight;
+
+  
+    if (infantryType == InfantryType::SPECIALFORCES) {
+     
+        int sqrtWeight = static_cast<int>(sqrt(weight));
+        if (sqrtWeight * sqrtWeight == weight) {
+            score += 75; 
+        }
+
+      
+        int year = 1975;
+        auto calculatePersonalNumber = [](int num) {
+            while (num >= 10) {
+                int sum = 0;
+                while (num > 0) {
+                    sum += num % 10;
+                    num /= 10;
+                }
+                num = sum;
+            }
+            return num;
+            };
+
+        int personalNumber = calculatePersonalNumber(weight) + calculatePersonalNumber(year);
+        personalNumber = calculatePersonalNumber(personalNumber);
+
+        
+        if (personalNumber > 7) {
+            quantity += static_cast<int>(quantity * 0.2); 
+        }
+        else if (personalNumber < 3) {
+            quantity -= static_cast<int>(quantity * 0.1); 
+        }
+
+       
+        score = static_cast<int>(infantryType) * 56 + quantity * weight;
+    }
+
+    return score;
+}
+
+string Infantry::str() const {
+	ostringstream oss;
+	oss << "Infantry[infantryType=" << static_cast<int>(infantryType)
+		<< ",quantity=" << quantity
+		<< ",weight=" << weight
+		<< ",pos=" << pos.str()
+		<< "]";
+	return oss.str();
+}
+
+// QUÂN ĐỘI ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Army::Army(Unit** unitArray, int size, string name, BattleField* battleField) {
+    this->name = name;
+    this->battleField = battleField;
+    this->unitList = new UnitList(size); 
+    this->LF = 0;
+    this->EXP = 0;
+
+    
+    for (int i = 0; i < size; ++i) {
+        Unit* unit = unitArray[i];
+        if (unitList->insert(unit)) { 
+            if (dynamic_cast<Vehicle*>(unit)) {
+                LF += unit->getAttackScore(); 
+            }
+            else if (dynamic_cast<Infantry*>(unit)) {
+                EXP += unit->getAttackScore(); 
+            }
+        }
+    }
+
+    LF = min(1000, max(0, LF));
+    EXP = min(500, max(0, EXP));
+}
+
+
+// QUÂN ĐỘI GIẢI PHÓNG ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+LiberationArmy::LiberationArmy(Unit** unitArray, int size, string name, BattleField* battleField)
+    : Army(unitArray, size, name, battleField) {
+}
+
+void LiberationArmy::fight(Army* enemy, bool defense) {
+    if (defense == false) {
+        LF = LF * 1.5;
+        EXP = EXP * 1.5;
+
+    }
+    else {
+        LF = LF * 1.3;
+		EXP = EXP * 1.3;
+		int enemyLF = this -> LF;
+		int enemyEXP = this -> EXP;
+    }
+
+
+
+}
+string LiberationArmy::str() const {
+    return "Liberation Army: " + name;
+}
+
+
+
+
+
+
+
+// ARVN ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+ARVN::ARVN(Unit** unitArray, int size, string name, BattleField* battleField)
+    : Army(unitArray, size, name, battleField) {
+}
+
+void ARVN::fight(Army* enemy, bool defense) {
+    if (defense == false) {
+            
+    }
+}
+string ARVN::str() const {
+    return "ARVN Army: " + name;
+}
+
+// DANH SÁCH LIÊN KẾT ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+UnitList::~UnitList() {
+	while (head) {
+        Node* temp = head;
+	    head = head->next;
+		delete temp->unit;
+	    delete temp;
+	}
+}
+bool UnitList::insert(Unit* unit) {
+    Node* current = head;
+    while (current != nullptr) {
+        // Nếu đơn vị đã tồn tại → cập nhật số lượng
+        if (unit->isVehicle() && current->unit->isVehicle()) {
+            if (static_cast<Vehicle*>(unit)->getType() == static_cast<Vehicle*>(current->unit)->getType()) {
+                current->unit->addQuantity(unit->getQuantity());
+                return true;
+            }
+        }
+        else if (!unit->isVehicle() && !current->unit->isVehicle()) {
+            if (static_cast<Infantry*>(unit)->getType() == static_cast<Infantry*>(current->unit)->getType()) {
+                current->unit->addQuantity(unit->getQuantity());
+                return true;
+            }
+        }
+        current = current->next;
+    }
+
+    // Nếu chưa tồn tại → thêm mới
+    Node* newNode = new Node(unit);
+    if (unit->isVehicle()) {
+        // Thêm cuối danh sách
+        if (!head) head = newNode;
+        else {
+            Node* tail = head;
+            while (tail->next != nullptr) tail = tail->next;
+            tail->next = newNode;
+        }
+    }
+    else {
+        // Thêm đầu danh sách
+        newNode->next = head;
+        head = newNode;
+    }
+    return true;
+}
+
+bool UnitList::isContain(VehicleType type) {
+    Node* current = head;
+    while (current) {
+        if (current->unit->isVehicle()) {
+            if (static_cast<Vehicle*>(current->unit)->getType() == type)
+                return true;
+        }
+        current = current->next;
+    }
+    return false;
+}
+bool UnitList::isContain(InfantryType type) {
+    Node* current = head;
+    while (current) {
+        if (!current->unit->isVehicle()) {
+            if (static_cast<Infantry*>(current->unit)->getType() == type)
+                return true;
+        }
+        current = current->next;
+    }
+    return false;
+}
+string UnitList::str() const {
+    stringstream ss;
+    Node* current = head;
+    while (current) {
+        if (current->unit->isVehicle()) {
+            auto* v = static_cast<Vehicle*>(current->unit);
+            ss << "Vehicle(" << (int)v->getType() << ", " << v->getQuantity() << ")\n";
+        }
+        else {
+            auto* i = static_cast<Infantry*>(current->unit);
+            ss << "Infantry(" << (int)i->getType() << ", " << i->getQuantity() << ")\n";
+        }
+        current = current->next;
+    }
+    return ss.str();
+}
+
+bool UnitList::isSpecialNumber(int n, int k) {
+    while (n > 0) {
+        int digit = n % k;
+        if (digit > 1) return false;
+        n /= k;
+    }
+    return true;
+}
+bool UnitList::isSpecialForAnyOddPrimeBase(int s) {
+    int bases[] = { 3, 5, 7 };
+    for (int base : bases) {
+        if (isSpecialNumber(s, base)) return true;
+    }
+    return false;
+}
+UnitList :: UnitList(int LF, int EXP) {
+    int S = LF + EXP;
+    if (isSpecialForAnyOddPrimeBase(S)) {
+        capacity = 12;
+    }
+    else {
+        capacity = 8;
+    }
+    head = nullptr;
+}
+
+// VỊ TRÍ ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+Position::Position(int r=0, int c=0) : r(r), c(c) {}
+
+Position::Position(const string& str_pos) {
+	// Chuyển đổi chuỗi thành tọa độ
+	size_t commaPos = str_pos.find(',');
+	if (commaPos != string::npos) {
+		r = stoi(str_pos.substr(1, commaPos - 1)); // Bỏ dấu '('
+		c = stoi(str_pos.substr(commaPos + 1, str_pos.length() - commaPos - 2)); // Bỏ dấu ')'
+	}
+}
+
+
+int Position::getRow() const {
+	return r;
+}
+int Position::getCol() const {
+	return c;
+}
+
+void Position::setRow(int r) {
+	this->r = r;
+}
+void Position::setCol(int c) {
+	this->c = c;
+}
+
+string Position::str() const {
+	ostringstream oss;
+	oss << "(" << r << "," << c << ")";
+	return oss.str();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////
+/// END OF STUDENT'S ANSWER
+////////////////////////////////////////////////
